@@ -39,8 +39,8 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <img
-                  src="/TorontoGuessrThumbnail.webp?height=200&width=400"
-                  alt="Toronto skyline"
+                  src="/CalgaryGuessrThumbnail.webp?height=200&width=400"
+                  alt="Calgary skyline"
                   className="rounded-md w-full h-48 object-cover"
                 />
               </CardContent>
