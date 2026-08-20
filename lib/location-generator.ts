@@ -2,21 +2,31 @@
 
 import { hasStreetView } from "@/lib/streetview";
 import { db } from "@/lib/firebase";
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
+import type { LatLng } from "@/lib/types";
 
-const CALGARY_BOUNDS = {
-  north: 51.054582, // Northeast corner 51.054582, -114.053253
-  south: 51.036649, // Southwest corner 51.036649, -114.094705
-  west: -114.094705, // Northwest corner 51.056375, -114.094705
-  east: -114.050461, // Southeast corner 51.035962, -114.050461
+/**
+ * The playable area: downtown Calgary and the communities immediately around
+ * it. About 2.0 km north to south by 3.1 km east to west, which is the scale
+ * the scoring curve in lib/game-utils.ts is calibrated against.
+ */
+export const CALGARY_BOUNDS = {
+  north: 51.054582,
+  south: 51.036649,
+  west: -114.094705,
+  east: -114.050461,
 };
 
-export interface Location {
-  lat: number;
-  lng: number;
-}
+export type Location = LatLng;
 
-export async function generateRandomLocation(): Promise<Location> {
+/**
+ * A random point inside the playable area.
+ *
+ * A SEEDING primitive, not part of gameplay: it is how the verifiedLocations
+ * collection gets populated in the first place. Gameplay only ever reads that
+ * collection.
+ */
+export function generateRandomLocation(): Location {
   const lat =
     Math.random() * (CALGARY_BOUNDS.north - CALGARY_BOUNDS.south) +
     CALGARY_BOUNDS.south;
@@ -26,32 +36,41 @@ export async function generateRandomLocation(): Promise<Location> {
   return { lat, lng };
 }
 
+/** Whether a candidate has Street View imagery. Seeding-side check. */
 export async function validateStreetView(location: Location): Promise<boolean> {
   return await hasStreetView(location.lat, location.lng);
 }
 
-export async function getVerifiedLocations(count = 10): Promise<Location[]> {
-  const verifiedRef = collection(db, "verifiedLocations");
-  const snap = await getDocs(verifiedRef);
+/**
+ * A shuffled slice of the verified location pool.
+ *
+ * READ ONLY. The previous version fell through to generating candidates and
+ * writing them back with addDoc when the pool came up short, which meant an
+ * ordinary page load could start writing to Firestore from the browser. It
+ * never fired in practice, because the pool is larger than a game, and the
+ * round builder now over-fetches candidates and skips the ones Street View
+ * cannot resolve, so a short pool degrades to a shorter game rather than to a
+ * write. Seed the collection with the scripts in scripts/ instead.
+ */
+export async function getLocationPool(count = 10): Promise<Location[]> {
+  const snapshot = await getDocs(collection(db, "verifiedLocations"));
 
-  const allLocations: Location[] = snap.docs.map((doc) => {
-    const data = doc.data();
-    return { lat: data.lat, lng: data.lng };
+  const all: Location[] = snapshot.docs.map((document) => {
+    const data = document.data();
+    return { lat: data.lat as number, lng: data.lng as number };
   });
 
-  // Shuffle and select unique random entries
-  const shuffled = allLocations.sort(() => 0.5 - Math.random());
-  const selected = shuffled.slice(0, count);
+  return shuffle(all).slice(0, count);
+}
 
-  // If not enough cached, generate more
-  while (selected.length < count) {
-    const candidate = await generateRandomLocation();
-    const isValid = await validateStreetView(candidate);
-    if (isValid) {
-      await addDoc(verifiedRef, candidate);
-      selected.push(candidate);
-    }
+/** Fisher-Yates. `Array.sort` with a random comparator is not a fair shuffle. */
+function shuffle<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const swap = shuffled[i]!;
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = swap;
   }
-
-  return selected;
+  return shuffled;
 }

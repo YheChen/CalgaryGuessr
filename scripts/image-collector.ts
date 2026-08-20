@@ -2,38 +2,39 @@
  * This script demonstrates how to collect Street View images for the game
  * In a real implementation, you would need to:
  * 1. Set up Google Street View Static API credentials
- * 2. Define the bounds for downtown Toronto
+ * 2. Define the bounds for downtown Calgary
  * 3. Generate random points within those bounds
  * 4. Check if Street View is available at those points
  * 5. Download and save the images
  */
 
-// Toronto downtown bounds (approximate)
-const TORONTO_BOUNDS = {
-  north: 43.6772,
-  south: 43.63,
-  east: -79.35,
-  west: -79.41,
+// Downtown Calgary bounds. Keep these in step with CALGARY_BOUNDS in
+// lib/location-generator.ts: the scoring curve is calibrated to that box.
+const CALGARY_BOUNDS = {
+  north: 51.054582,
+  south: 51.036649,
+  east: -114.050461,
+  west: -114.094705,
 }
 
-// Neighborhoods to ensure coverage
-const TORONTO_NEIGHBORHOODS = [
-  { name: "Financial District", lat: 43.6486, lng: -79.379 },
-  { name: "Entertainment District", lat: 43.647, lng: -79.3882 },
-  { name: "Chinatown", lat: 43.6532, lng: -79.3972 },
-  { name: "Kensington Market", lat: 43.6543, lng: -79.4007 },
-  { name: "Queen West", lat: 43.6472, lng: -79.4015 },
-  { name: "Distillery District", lat: 43.6503, lng: -79.3596 },
-  { name: "Yorkville", lat: 43.6708, lng: -79.3928 },
-  { name: "Harbourfront", lat: 43.6389, lng: -79.3781 },
+// Communities to ensure coverage
+const CALGARY_COMMUNITIES = [
+  { name: "Downtown Core", lat: 51.0466, lng: -114.0708 },
+  { name: "Beltline", lat: 51.0398, lng: -114.0731 },
+  { name: "Chinatown", lat: 51.0507, lng: -114.0637 },
+  { name: "Eau Claire", lat: 51.0525, lng: -114.0729 },
+  { name: "Kensington", lat: 51.0534, lng: -114.0872 },
+  { name: "Sunnyside", lat: 51.0562, lng: -114.0833 },
+  { name: "Crescent Heights", lat: 51.0596, lng: -114.0668 },
+  { name: "East Village", lat: 51.0459, lng: -114.0525 },
 ]
 
 /**
- * Generate a random point within the Toronto bounds
+ * Generate a random point within the Calgary bounds
  */
 function generateRandomPoint() {
-  const lat = Math.random() * (TORONTO_BOUNDS.north - TORONTO_BOUNDS.south) + TORONTO_BOUNDS.south
-  const lng = Math.random() * (TORONTO_BOUNDS.east - TORONTO_BOUNDS.west) + TORONTO_BOUNDS.west
+  const lat = Math.random() * (CALGARY_BOUNDS.north - CALGARY_BOUNDS.south) + CALGARY_BOUNDS.south
+  const lng = Math.random() * (CALGARY_BOUNDS.east - CALGARY_BOUNDS.west) + CALGARY_BOUNDS.west
   return { lat, lng }
 }
 
@@ -76,15 +77,15 @@ async function checkStreetViewAvailability(lat: number, lng: number, apiKey: str
 async function collectStreetViewImages(count: number, apiKey: string) {
   const locations = []
 
-  console.log(`Collecting ${count} Street View images for Toronto...`)
+  console.log(`Collecting ${count} Street View images for Calgary...`)
 
-  // First, collect images from specific neighborhoods
-  for (const neighborhood of TORONTO_NEIGHBORHOODS) {
-    console.log(`Checking ${neighborhood.name}...`)
+  // First, collect images from specific communitys
+  for (const community of CALGARY_COMMUNITIES) {
+    console.log(`Checking ${community.name}...`)
 
     // Add some randomness to the exact location
-    const lat = neighborhood.lat + (Math.random() - 0.5) * 0.005
-    const lng = neighborhood.lng + (Math.random() - 0.5) * 0.005
+    const lat = community.lat + (Math.random() - 0.5) * 0.005
+    const lng = community.lng + (Math.random() - 0.5) * 0.005
 
     const hasStreetView = await checkStreetViewAvailability(lat, lng, apiKey)
 
@@ -92,11 +93,11 @@ async function collectStreetViewImages(count: number, apiKey: string) {
       locations.push({
         lat,
         lng,
-        name: neighborhood.name,
+        name: community.name,
         url: generateStreetViewUrl(lat, lng, apiKey),
       })
 
-      console.log(`Added ${neighborhood.name}`)
+      console.log(`Added ${community.name}`)
     }
   }
 
@@ -107,27 +108,27 @@ async function collectStreetViewImages(count: number, apiKey: string) {
     const hasStreetView = await checkStreetViewAvailability(point.lat, point.lng, apiKey)
 
     if (hasStreetView) {
-      // Determine which neighborhood this point is in (or closest to)
-      let closestNeighborhood = TORONTO_NEIGHBORHOODS[0]
-      let minDistance = calculateDistance(point.lat, point.lng, closestNeighborhood.lat, closestNeighborhood.lng)
+      // Determine which community this point is in (or closest to)
+      let closestCommunity = CALGARY_COMMUNITIES[0]
+      let minDistance = calculateDistance(point.lat, point.lng, closestCommunity.lat, closestCommunity.lng)
 
-      for (const neighborhood of TORONTO_NEIGHBORHOODS) {
-        const distance = calculateDistance(point.lat, point.lng, neighborhood.lat, neighborhood.lng)
+      for (const community of CALGARY_COMMUNITIES) {
+        const distance = calculateDistance(point.lat, point.lng, community.lat, community.lng)
 
         if (distance < minDistance) {
           minDistance = distance
-          closestNeighborhood = neighborhood
+          closestCommunity = community
         }
       }
 
       locations.push({
         lat: point.lat,
         lng: point.lng,
-        name: `Near ${closestNeighborhood.name}`,
+        name: `Near ${closestCommunity.name}`,
         url: generateStreetViewUrl(point.lat, point.lng, apiKey),
       })
 
-      console.log(`Added random location near ${closestNeighborhood.name}`)
+      console.log(`Added random location near ${closestCommunity.name}`)
     }
   }
 
