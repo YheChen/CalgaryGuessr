@@ -41,36 +41,87 @@ export async function validateStreetView(location: Location): Promise<boolean> {
   return await hasStreetView(location.lat, location.lng);
 }
 
+const CACHE_KEY = "cg_location_pool_v1";
+
 /**
- * A shuffled slice of the verified location pool.
+ * The whole verified location pool.
  *
- * READ ONLY. The previous version fell through to generating candidates and
+ * READ ONLY. An earlier version fell through to generating candidates and
  * writing them back with addDoc when the pool came up short, which meant an
- * ordinary page load could start writing to Firestore from the browser. It
- * never fired in practice, because the pool is larger than a game, and the
+ * ordinary page load could start writing to Firestore from the browser. The
  * round builder now over-fetches candidates and skips the ones Street View
  * cannot resolve, so a short pool degrades to a shorter game rather than to a
  * write. Seed the collection with the scripts in scripts/ instead.
+ *
+ * Cached in sessionStorage for the tab's lifetime. Firestore bills per document
+ * READ, and a getDocs over a collection with no limit costs one read per
+ * document, so without this every "play again" re-bought the entire pool. A tab
+ * lifetime is the right window: long enough to cover a session of repeat games,
+ * short enough that newly seeded locations appear without anyone clearing
+ * anything.
+ *
+ * The whole pool, not a slice, because the daily challenge needs the same
+ * starting set for everyone before it applies its seeded shuffle.
  */
-export async function getLocationPool(count = 10): Promise<Location[]> {
+export async function getAllLocations(): Promise<Location[]> {
+  const cached = readCache();
+  if (cached) {
+    return cached;
+  }
+
   const snapshot = await getDocs(collection(db, "verifiedLocations"));
+  const all: Location[] = snapshot.docs
+    .map((document) => {
+      const data = document.data();
+      return { lat: data.lat as number, lng: data.lng as number };
+    })
+    // A malformed document must not become a round at coordinates (NaN, NaN),
+    // which Street View would resolve nowhere and scoring would turn into a
+    // blank score.
+    .filter(
+      (location) =>
+        Number.isFinite(location.lat) && Number.isFinite(location.lng),
+    );
 
-  const all: Location[] = snapshot.docs.map((document) => {
-    const data = document.data();
-    return { lat: data.lat as number, lng: data.lng as number };
-  });
-
-  return shuffle(all).slice(0, count);
+  writeCache(all);
+  return all;
 }
 
-/** Fisher-Yates. `Array.sort` with a random comparator is not a fair shuffle. */
-function shuffle<T>(items: T[]): T[] {
-  const shuffled = [...items];
-  for (let i = shuffled.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    const swap = shuffled[i]!;
-    shuffled[i] = shuffled[j]!;
-    shuffled[j] = swap;
+function readCache(): Location[] | null {
+  if (typeof window === "undefined") {
+    return null;
   }
-  return shuffled;
+  try {
+    const raw = window.sessionStorage.getItem(CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      return null;
+    }
+    const locations = parsed.filter(
+      (entry): entry is Location =>
+        typeof entry === "object" &&
+        entry !== null &&
+        Number.isFinite((entry as Location).lat) &&
+        Number.isFinite((entry as Location).lng),
+    );
+    return locations.length > 0 ? locations : null;
+  } catch {
+    // Blocked storage or corrupt payload: fall through to a live read.
+    return null;
+  }
+}
+
+function writeCache(locations: Location[]): void {
+  if (typeof window === "undefined" || locations.length === 0) {
+    return;
+  }
+  try {
+    window.sessionStorage.setItem(CACHE_KEY, JSON.stringify(locations));
+  } catch {
+    // Quota or blocked storage. The cache is an optimisation, not a
+    // requirement, so a failure here costs reads and nothing else.
+  }
 }

@@ -31,7 +31,7 @@ const STEPS = [
   {
     icon: Flag,
     title: "Finish the run",
-    body: "Play five rounds, then see your total and a per-round breakdown of how close you got.",
+    body: "Play five rounds, then see your total, a per-round breakdown, and a grid you can share. Come back for the daily challenge: the same five locations for everyone, once a day.",
   },
 ] as const;
 
