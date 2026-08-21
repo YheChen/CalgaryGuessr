@@ -1,41 +1,44 @@
-"use client"
+"use client";
 
-import { Moon, Sun } from "lucide-react"
-import { useTheme } from "next-themes"
-import { Button } from "@/components/ui/button"
-import { useEffect, useState } from "react"
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-export function ThemeToggle() {
-  const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+export function ThemeToggle({ className }: { className?: string }) {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
 
-  // Avoid hydration mismatch by only rendering after component is mounted
   useEffect(() => {
-    setMounted(true)
-  }, [])
+    setMounted(true);
+  }, []);
 
-  if (!mounted) {
-    return (
-      <Button variant="outline" size="icon" className="border-white/20 bg-white/10 text-white">
-        <Moon className="h-[1.2rem] w-[1.2rem]" />
-        <span className="sr-only">Toggle theme</span>
-      </Button>
-    )
-  }
+  const isDark = resolvedTheme === "dark";
 
   return (
     <Button
       variant="outline"
       size="icon"
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      className={
-        theme === "dark"
-          ? "border-white/20 bg-white/10 text-white"
-          : "border-[#00205B] border-2 bg-white text-[#00205B]"
-      }
+      aria-label="Toggle color theme"
+      onClick={() => setTheme(isDark ? "light" : "dark")}
+      className={cn("relative overflow-hidden rounded-full", className)}
     >
-      {theme === "dark" ? <Sun className="h-[1.2rem] w-[1.2rem]" /> : <Moon className="h-[1.2rem] w-[1.2rem]" />}
-      <span className="sr-only">Toggle theme</span>
+      {/* Render a stable icon until mounted to avoid hydration mismatch. */}
+      <Sun
+        className={
+          mounted && !isDark
+            ? "size-[1.15rem] rotate-0 scale-100 transition-all duration-300"
+            : "absolute size-[1.15rem] -rotate-90 scale-0 transition-all duration-300"
+        }
+      />
+      <Moon
+        className={
+          !mounted || isDark
+            ? "size-[1.15rem] rotate-0 scale-100 transition-all duration-300"
+            : "absolute size-[1.15rem] rotate-90 scale-0 transition-all duration-300"
+        }
+      />
     </Button>
-  )
+  );
 }

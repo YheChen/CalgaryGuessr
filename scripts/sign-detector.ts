@@ -111,9 +111,9 @@ async function processBatch(imagePaths: string[], outputDir: string) {
 
 // Example usage:
 // const imagePaths = [
-//   './images/toronto_1.jpg',
-//   './images/toronto_2.jpg',
-//   './images/toronto_3.jpg'
+//   './images/calgary_1.jpg',
+//   './images/calgary_2.jpg',
+//   './images/calgary_3.jpg'
 // ];
 // processBatch(imagePaths, './processed_images').then(results => {
 //   console.log(`Processed ${results.length} images`);

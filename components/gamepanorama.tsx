@@ -2,64 +2,111 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useJsApiLoader } from "@react-google-maps/api";
+import { Spinner } from "@/components/site/spinner";
 
 interface Props {
-  lat: number;
-  lng: number;
-  testMode?: boolean; // NEW: optional prop to lock to a fixed lat/lng
+  panoId: string;
+  heading: number;
+  pitch?: number;
+  zoom?: number;
 }
 
-export default function GamePanorama({ lat, lng, testMode = false }: Props) {
+export default function GamePanorama({
+  panoId,
+  heading,
+  pitch = 0,
+  zoom = 1,
+}: Props) {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!,
   });
 
-  const streetViewRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const panoramaRef = useRef<google.maps.StreetViewPanorama | null>(null);
+  const currentPanoRef = useRef<string | null>(null);
+  const fallbackRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // Hide the overlay when imagery reports in; the fallback guarantees it never
+  // sticks if the event is missed. This replaces a blind 1000ms setTimeout that
+  // both delayed every fast load and lied about every slow one.
+  const armLoadingFallback = () => {
+    if (fallbackRef.current) {
+      clearTimeout(fallbackRef.current);
+    }
+    fallbackRef.current = setTimeout(() => setLoaded(true), 1200);
+  };
+
+  // Create the panorama once per mount; later rounds reuse the instance via
+  // setPano instead of paying construction cost again. The initial pov props
+  // are read from the closure on purpose.
   useEffect(() => {
-    let timeout: NodeJS.Timeout;
-
-    if (isLoaded && streetViewRef.current) {
-      setLoaded(false);
-
-      timeout = setTimeout(() => {
-        const panorama = new google.maps.StreetViewPanorama(
-          streetViewRef.current!,
-          {
-            position: testMode
-              ? { lat: 42.345573, lng: -71.098326 } // ✅ fixed location: Downtown Toronto
-              : { lat, lng },
-            pov: {
-              heading: Math.random() * 360,
-              pitch: 0,
-            },
-            zoom: 1,
-            disableDefaultUI: true,
-            showRoadLabels: false,
-          }
-        );
-        setLoaded(true);
-      }, 1000); // ✅ throttle load (1 second delay)
+    if (!isLoaded || !containerRef.current) {
+      return;
     }
 
-    return () => clearTimeout(timeout);
-  }, [isLoaded, lat, lng, testMode]);
-
-  if (!isLoaded) {
-    return (
-      <div className="text-white bg-black p-4">Loading Google Maps...</div>
+    const node = containerRef.current;
+    const panorama = new google.maps.StreetViewPanorama(node, {
+      pano: panoId,
+      pov: { heading, pitch },
+      zoom,
+      disableDefaultUI: true,
+      showRoadLabels: false,
+      // Don't rotate the view with the phone's gyroscope on mobile.
+      motionTracking: false,
+      motionTrackingControl: false,
+    });
+    panoramaRef.current = panorama;
+    currentPanoRef.current = panoId;
+    const listener = panorama.addListener("pano_changed", () =>
+      setLoaded(true),
     );
-  }
+    armLoadingFallback();
+
+    return () => {
+      listener.remove();
+      if (fallbackRef.current) {
+        clearTimeout(fallbackRef.current);
+      }
+      panoramaRef.current = null;
+      currentPanoRef.current = null;
+      node.innerHTML = "";
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
+
+  // Round changes: retarget the existing instance.
+  useEffect(() => {
+    const panorama = panoramaRef.current;
+    if (!panorama) {
+      return;
+    }
+
+    if (currentPanoRef.current !== panoId) {
+      currentPanoRef.current = panoId;
+      setLoaded(false);
+      armLoadingFallback();
+      panorama.setPano(panoId);
+    }
+    panorama.setPov({ heading, pitch });
+    panorama.setZoom(zoom);
+  }, [panoId, heading, pitch, zoom]);
 
   return (
-    <div style={{ height: "600px", width: "100%", position: "relative" }}>
-      {!loaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-white z-10">
-          Loading Street View...
+    <div
+      data-testid="game-panorama"
+      data-loaded={loaded ? "true" : "false"}
+      className="relative h-full min-h-[320px] w-full overflow-hidden rounded-2xl bg-black ring-1 ring-border/60"
+    >
+      {(!isLoaded || !loaded) && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/70 text-white backdrop-blur-sm">
+          <Spinner size={32} />
+          <p className="text-sm font-medium text-white/80">
+            {isLoaded ? "Loading Street View…" : "Loading Google Maps…"}
+          </p>
         </div>
       )}
-      <div ref={streetViewRef} style={{ height: "100%", width: "100%" }} />
+      <div ref={containerRef} className="h-full w-full" />
     </div>
   );
 }

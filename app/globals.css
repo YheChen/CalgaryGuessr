@@ -2,67 +2,123 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  CalgaryGuessr design system: "Chinook"
+  Red-forward and warm. Flames red (#C8102E) is the interactive primary, with a
+  Stampede gold accent and a prairie-sky blue reserved for focus rings and
+  links, so a blue ring always reads as "focused" against a red control. All
+  shadcn semantic tokens stay warm-neutral so existing primitives keep working,
+  while brand colors live in dedicated vars.
+
+  NOTE ON --destructive: with a red brand, error red and brand red are close by
+  construction. That is acceptable here because the only destructive surfaces
+  are the error card and the "Out of time" verdict, both of which are meant to
+  feel alarming. Do not introduce a delete-style action that relies on colour
+  alone to distinguish itself from the primary button.
+*/
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Surfaces: warm paper white */
+    --background: 20 33% 98%;
+    --foreground: 20 20% 11%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 20 20% 11%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 20 20% 11%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Interactive / brand: Flames red #C8102E, 5.9:1 against white */
+    --primary: 350 85% 42%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 20 20% 95%;
+    --secondary-foreground: 20 25% 22%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 20 18% 95%;
+    --muted-foreground: 20 9% 44%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 351 58% 95%;
+    --accent-foreground: 350 55% 28%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 74% 44%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --success: 152 64% 30%;
+    --success-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    /* Lines & focus. The ring is sky, not red: a red ring on a red button is
+       invisible, and focus has to be legible on every control. */
+    --border: 20 20% 89%;
+    --input: 20 20% 87%;
+    --ring: 202 92% 42%;
+
+    --radius: 0.85rem;
+
+    /* Brand accents (used directly, not via shadcn semantics) */
+    --calgary-red: 350 85% 42%;
+    --calgary-gold: 42 92% 46%;
+    --calgary-sky: 202 92% 44%;
+    --calgary-charcoal: 20 18% 14%;
+
+    /* Medal colors: tuned to stay readable as text on light surfaces */
+    --medal-gold: 38 92% 32%;
+    --medal-silver: 215 16% 40%;
+    --medal-bronze: 26 58% 36%;
+
+    /* Decorative */
+    --grid-line: 20 22% 84%;
+    --glow: 350 85% 55%;
+    --surface-shimmer: 20 40% 96%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 20 14% 7%;
+    --foreground: 20 15% 96%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 20 12% 11%;
+    --card-foreground: 20 15% 96%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 20 13% 10%;
+    --popover-foreground: 20 15% 96%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    /* 4.6:1 against white, and 3.4:1 against the canvas as a control */
+    --primary: 350 82% 50%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 20 10% 16%;
+    --secondary-foreground: 20 15% 95%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 20 9% 15%;
+    --muted-foreground: 20 10% 68%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 351 34% 19%;
+    --accent-foreground: 351 40% 93%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --success: 152 58% 46%;
+    --success-foreground: 152 80% 6%;
+
+    --border: 20 10% 19%;
+    --input: 20 10% 21%;
+    --ring: 200 94% 58%;
+
+    --calgary-red: 350 82% 55%;
+    --calgary-gold: 42 96% 58%;
+    --calgary-sky: 200 94% 62%;
+    --calgary-charcoal: 20 14% 9%;
+
+    /* Medal colors: bright enough to read on the dark canvas */
+    --medal-gold: 41 96% 60%;
+    --medal-silver: 214 18% 74%;
+    --medal-bronze: 28 72% 62%;
+
+    --grid-line: 20 14% 26%;
+    --glow: 350 82% 55%;
+    --surface-shimmer: 20 12% 18%;
   }
 }
 
@@ -70,7 +126,261 @@
   * {
     @apply border-border;
   }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  ::selection {
+    background-color: hsl(var(--primary) / 0.25);
+    color: hsl(var(--foreground));
+  }
+
   body {
-    @apply bg-background text-foreground transition-colors duration-300;
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    min-height: 100vh;
+  }
+
+  /* Numeric tabular feel for scores / coordinates / timers */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  .font-mono-accent {
+    font-family: var(--font-mono, ui-monospace, "SF Mono", SFMono-Regular,
+        "Roboto Mono", Menlo, Consolas, monospace);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Refined focus ring everywhere */
+  :focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px hsl(var(--background)),
+      0 0 0 4px hsl(var(--ring) / 0.65);
+    border-radius: var(--radius);
+  }
+
+  /* Custom scrollbar */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--muted-foreground) / 0.32);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(var(--muted-foreground) / 0.55);
+  }
+}
+
+@layer components {
+  /* Layered glass surface used by floating panels / HUD */
+  .glass {
+    background-color: hsl(var(--card) / 0.72);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid hsl(var(--border) / 0.8);
+  }
+
+  .glass-strong {
+    background-color: hsl(var(--card) / 0.86);
+    backdrop-filter: blur(22px) saturate(160%);
+    -webkit-backdrop-filter: blur(22px) saturate(160%);
+    border: 1px solid hsl(var(--border) / 0.9);
+  }
+
+  /* Premium elevated card */
+  .surface-card {
+    background:
+      linear-gradient(
+        180deg,
+        hsl(var(--card)) 0%,
+        hsl(var(--card) / 0.92) 100%
+      );
+    border: 1px solid hsl(var(--border));
+    box-shadow:
+      0 1px 0 0 hsl(var(--foreground) / 0.02) inset,
+      0 1px 2px hsl(20 30% 10% / 0.04),
+      0 8px 24px -12px hsl(20 30% 10% / 0.18);
+  }
+  .dark .surface-card {
+    box-shadow:
+      0 1px 0 0 hsl(0 0% 100% / 0.04) inset,
+      0 2px 6px hsl(0 0% 0% / 0.3),
+      0 16px 40px -16px hsl(0 0% 0% / 0.6);
+  }
+
+  /* Brand gradient text: Flames red through Stampede gold */
+  .text-gradient {
+    background: linear-gradient(
+      120deg,
+      hsl(var(--calgary-red)),
+      hsl(var(--calgary-gold))
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Hairline divider */
+  .hairline {
+    border-color: hsl(var(--border) / 0.7);
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  /* Cartographic grid texture for backgrounds */
+  .bg-map-grid {
+    background-image:
+      linear-gradient(to right, hsl(var(--grid-line) / 0.5) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--grid-line) / 0.5) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .bg-map-grid-fine {
+    background-image:
+      linear-gradient(to right, hsl(var(--grid-line) / 0.35) 1px, transparent 1px),
+      linear-gradient(to bottom, hsl(var(--grid-line) / 0.35) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Radial spotlight glow */
+  .bg-spotlight {
+    background:
+      radial-gradient(
+        60% 50% at 50% 0%,
+        hsl(var(--glow) / 0.16) 0%,
+        transparent 70%
+      );
+  }
+
+  /* Animation entrances */
+  .animate-fade-up {
+    animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-fade-in {
+    animation: fade-in 0.5s ease both;
+  }
+  .animate-scale-in {
+    animation: scale-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-marker-drop {
+    animation: marker-drop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  .animate-shimmer {
+    background-size: 200% 100%;
+    animation: shimmer 1.6s linear infinite;
+  }
+  .animate-float {
+    animation: float 6s ease-in-out infinite;
+  }
+  .animate-pulse-ring {
+    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  /* Stagger helpers */
+  .delay-75 { animation-delay: 75ms; }
+  .delay-150 { animation-delay: 150ms; }
+  .delay-225 { animation-delay: 225ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-450 { animation-delay: 450ms; }
+  .delay-600 { animation-delay: 600ms; }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes marker-drop {
+  0% {
+    opacity: 0;
+    transform: translateY(-28px) scale(0.8);
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 hsl(var(--calgary-red) / 0.5);
+  }
+  70% {
+    box-shadow: 0 0 0 12px hsl(var(--calgary-red) / 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 hsl(var(--calgary-red) / 0);
+  }
+}
+
+/* Respect reduced motion across the board */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
