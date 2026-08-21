@@ -3,15 +3,30 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useJsApiLoader } from "@react-google-maps/api";
-import { Crosshair, Home, MapPin, RotateCcw, Flag } from "lucide-react";
+import {
+  CalendarCheck,
+  CalendarDays,
+  Crosshair,
+  Home,
+  MapPin,
+  Play,
+  RotateCcw,
+  Flag,
+} from "lucide-react";
 import { GameHUD } from "@/components/game-hud";
 import { GameMap } from "@/components/game-map";
 import GamePanorama from "@/components/gamepanorama";
 import { PanoPrefetch } from "@/components/pano-prefetch";
 import { RoundCountdown } from "@/components/round-countdown";
 import { RoundResultCard } from "@/components/round-result-card";
+import { ShareResults } from "@/components/share-results";
+import { StreakBadge } from "@/components/streak-badge";
 import { CountUp } from "@/components/site/count-up";
-import { ErrorCard, LoadingScreen } from "@/components/site/states";
+import {
+  EmptyState,
+  ErrorCard,
+  LoadingScreen,
+} from "@/components/site/states";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { formatDistance } from "@/lib/format-distance";
@@ -20,11 +35,27 @@ import {
   calculateDistance,
   calculateScore,
 } from "@/lib/game-utils";
-import { getLocationPool } from "@/lib/location-generator";
+import { calgaryDateKey, formatDayLabel } from "@/lib/date-calgary";
+import { hasPlayedDailyToday, markDailyPlayed } from "@/lib/daily-attempt";
+import { parseGameMode, type GameMode } from "@/lib/game-params";
+import { getAllLocations } from "@/lib/location-generator";
 import { buildRounds } from "@/lib/panorama";
+import {
+  pickClassicCandidates,
+  pickDailyCandidates,
+} from "@/lib/round-selection";
+import { recordPlayedToday, type StreakState } from "@/lib/streak";
 import type { GameRound, LatLng, RoundResult } from "@/lib/types";
 
-type GameState = "loading" | "guessing" | "results" | "summary" | "error";
+type GameState =
+  | "loading"
+  | "guessing"
+  | "results"
+  | "summary"
+  | "error"
+  // Its own state rather than an error: nothing went wrong, the player has
+  // already had their one attempt at today's challenge.
+  | "daily-used";
 
 const TOTAL_ROUNDS = 5;
 const ROUND_SECONDS = 60;
@@ -80,6 +111,9 @@ export default function Game() {
   const [results, setResults] = useState<RoundResult[]>([]);
   const [currentResult, setCurrentResult] = useState<RoundResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mode, setMode] = useState<GameMode>("classic");
+  const [challengeDate, setChallengeDate] = useState<string | null>(null);
+  const [streak, setStreak] = useState<StreakState | null>(null);
 
   // Guards a round against being scored twice when the player's click and the
   // timer's expiry land in the same React batch: both would otherwise still see
@@ -90,10 +124,23 @@ export default function Game() {
 
   const totalRounds = rounds.length || TOTAL_ROUNDS;
 
-  const startGame = useCallback(async () => {
+  const startGame = useCallback(async (nextMode: GameMode = "classic") => {
     const loadId = loadIdRef.current + 1;
     loadIdRef.current = loadId;
 
+    const today = calgaryDateKey();
+
+    // One attempt a day. Checked before anything loads so the player is told up
+    // front rather than watching a game start and then stop.
+    if (nextMode === "daily" && hasPlayedDailyToday()) {
+      setMode("daily");
+      setChallengeDate(today);
+      setGameState("daily-used");
+      return;
+    }
+
+    setMode(nextMode);
+    setChallengeDate(nextMode === "daily" ? today : null);
     setGameState("loading");
     setErrorMessage(null);
     setRounds([]);
@@ -104,11 +151,15 @@ export default function Game() {
     scoredRoundRef.current = null;
 
     try {
-      const pool = await withTimeout(
-        getLocationPool(CANDIDATE_POOL),
-        "Loading locations",
-      );
+      const all = await withTimeout(getAllLocations(), "Loading locations");
       if (loadIdRef.current !== loadId) return;
+
+      // The daily's selection is seeded by the date, so every player who loads
+      // the same pool today walks the same candidates in the same order.
+      const pool =
+        nextMode === "daily"
+          ? pickDailyCandidates(all, today, CANDIDATE_POOL)
+          : pickClassicCandidates(all, CANDIDATE_POOL);
 
       if (pool.length === 0) {
         setErrorMessage(
@@ -133,6 +184,12 @@ export default function Game() {
         return;
       }
 
+      // Burn the attempt at START, not at finish: abandoning a daily half way
+      // still means its answers have been seen.
+      if (nextMode === "daily") {
+        markDailyPlayed();
+      }
+
       setRounds(resolved);
       setGameState("guessing");
     } catch (error) {
@@ -147,9 +204,13 @@ export default function Game() {
   }, []);
 
   // Wait for the Maps JS API: StreetViewService does not exist before it loads.
+  //
+  // The mode is read from window.location rather than useSearchParams because
+  // that hook opts the whole route out of static rendering unless it is wrapped
+  // in Suspense, and this page has nothing else that needs to be dynamic.
   useEffect(() => {
     if (!isLoaded) return;
-    void startGame();
+    void startGame(parseGameMode(window.location.search));
   }, [isLoaded, startGame]);
 
   useEffect(() => {
@@ -210,6 +271,9 @@ export default function Game() {
       setCurrentResult(null);
       setGameState("guessing");
     } else {
+      // Recorded once, on the transition into the summary. advanceStreak is
+      // idempotent per day, so a re-render cannot inflate the count.
+      setStreak(recordPlayedToday());
       setGameState("summary");
     }
   };
@@ -284,6 +348,14 @@ export default function Game() {
                   currentRound={currentRound}
                   totalRounds={totalRounds}
                   scores={results}
+                  badgeSlot={
+                    mode === "daily" ? (
+                      <span className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full bg-calgary-red px-3 py-1.5 text-xs font-bold uppercase tracking-[0.08em] text-white shadow-elevated">
+                        <CalendarDays className="size-3.5" />
+                        Daily
+                      </span>
+                    ) : undefined
+                  }
                   timerSlot={
                     <RoundCountdown
                       timeLimit={ROUND_SECONDS}
@@ -407,8 +479,31 @@ export default function Game() {
             <div className="mx-auto max-w-xl">
               <ErrorCard
                 message={errorMessage ?? "The game could not continue."}
-                onRetry={() => void startGame()}
+                onRetry={() => void startGame(mode)}
                 retryLabel="Try again"
+              />
+            </div>
+          )}
+
+          {/* Already had today's attempt. Its own screen rather than an error,
+              because nothing failed, and it points at the thing still worth
+              doing rather than leaving a dead end. */}
+          {gameState === "daily-used" && (
+            <div className="mx-auto max-w-xl">
+              <EmptyState
+                icon={CalendarCheck}
+                title="You have already played today's challenge"
+                description="The daily deals everyone the same five locations, so it is one attempt each. A new one is dealt at midnight in Calgary."
+                action={
+                  <Button
+                    onClick={() => void startGame("classic")}
+                    size="lg"
+                    className="rounded-xl"
+                  >
+                    <Play className="size-4" />
+                    Play a classic round
+                  </Button>
+                }
               />
             </div>
           )}
@@ -422,8 +517,14 @@ export default function Game() {
                   aria-hidden="true"
                 />
                 <span className="inline-flex items-center gap-2 rounded-full bg-accent px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-primary">
-                  <Flag className="size-3.5" />
-                  Game complete
+                  {mode === "daily" ? (
+                    <CalendarDays className="size-3.5" />
+                  ) : (
+                    <Flag className="size-3.5" />
+                  )}
+                  {mode === "daily" && challengeDate
+                    ? `Daily challenge · ${formatDayLabel(challengeDate)}`
+                    : "Game complete"}
                 </span>
                 <p className="mt-6 text-sm text-muted-foreground">Final score</p>
                 <p className="mt-1 flex items-baseline justify-center gap-2">
@@ -440,18 +541,30 @@ export default function Game() {
                     {bestRound.toLocaleString("en-US")}
                   </span>
                 </p>
+                <div className="mt-5 flex justify-center">
+                  <StreakBadge streak={streak} showBest />
+                </div>
               </div>
 
               {/* Actions */}
               <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+                {/* Always classic: today's daily is spent, so offering to
+                    replay it would just bounce off the attempt guard. */}
                 <Button
-                  onClick={() => void startGame()}
+                  onClick={() => void startGame("classic")}
                   size="xl"
                   className="rounded-2xl shadow-glow"
                 >
                   <RotateCcw className="size-5" />
-                  Play again
+                  {mode === "daily" ? "Play a classic round" : "Play again"}
                 </Button>
+                <ShareResults
+                  totalScore={totalScore}
+                  maxScore={maxTotal}
+                  scores={results}
+                  mode={mode}
+                  challengeDate={challengeDate}
+                />
                 <Button
                   asChild
                   size="xl"
